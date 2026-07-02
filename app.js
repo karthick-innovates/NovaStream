@@ -382,22 +382,49 @@ function handleKeyboardShortcuts(e) {
 /**
  * Toggle Full Screen for TV & Mobile Users
  */
-function toggleFullScreen() {
-  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-    if (elements.videoContainer && elements.videoContainer.requestFullscreen) {
-      elements.videoContainer.requestFullscreen().catch(() => {
-        if (elements.videoPlayer && elements.videoPlayer.requestFullscreen) elements.videoPlayer.requestFullscreen();
-        else if (elements.videoPlayer && elements.videoPlayer.webkitEnterFullscreen) elements.videoPlayer.webkitEnterFullscreen();
-      });
-    } else if (elements.videoPlayer && elements.videoPlayer.webkitEnterFullscreen) {
-      elements.videoPlayer.webkitEnterFullscreen();
+async function toggleFullScreen() {
+
+    try {
+
+        if (!document.fullscreenElement) {
+
+            await elements.videoContainer.requestFullscreen();
+
+            if (screen.orientation && screen.orientation.lock) {
+                try {
+                    await screen.orientation.lock("landscape");
+                } catch(e){}
+            }
+
+        } else {
+
+            await document.exitFullscreen();
+
+            if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+            }
+
+        }
+
+    } catch(err){
+        console.log(err);
     }
-  } else {
-    if (document.exitFullscreen) document.exitFullscreen();
-    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-  }
-  setTimeout(updateFullscreenButtonState, 100);
+
+    updateFullscreenButtonState();
 }
+document.addEventListener("fullscreenchange", () => {
+
+    updateFullscreenButtonState();
+
+    if (!document.fullscreenElement) {
+
+        if (screen.orientation && screen.orientation.unlock) {
+            screen.orientation.unlock();
+        }
+
+    }
+
+});
 
 /**
  * Update Fullscreen Back Button Visibility State
