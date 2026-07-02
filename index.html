@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NovaStream TV — Live TV & Android TV WebApp</title>
+  <meta name="description" content="Watch live Tamil and Indian TV channels easily without buffering. Built for Android Mobile and Android TV D-Pad Remote Control. Educational and personal streaming purpose.">
+  <meta name="theme-color" content="#080c14">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- HLS.js for Zero-Buffering Live Streaming -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="theme-obsidian web-app-view grandpa-mode android-tv-mode">
+
+  <!-- Ultra-Simple Top Navigation Bar (Logo + Search Bar Only!) -->
+  <header class="navbar simple-navbar">
+    <div class="nav-brand" id="logo-home-btn" title="Go to Home" tabindex="0">
+      <div class="brand-logo">
+        <i class="fa-solid fa-tv neon-icon"></i>
+      </div>
+      <div class="brand-text">
+        <span class="brand-title">NovaStream<span class="highlight">TV</span></span>
+        <span class="live-badge"><span class="pulse-dot"></span> <span>LIVE TV</span></span>
+      </div>
+    </div>
+
+    <!-- Big Simple Search Bar -->
+    <div class="nav-search-container">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="search-input" placeholder="Search Tamil, Indian, or global channels..." autocomplete="off" tabindex="0">
+        <button id="clear-search-btn" class="clear-btn hidden" title="Clear" tabindex="0">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Educational Disclaimer Modal (Play Store & Legal Compliance) -->
+  <div id="welcome-modal" class="modal-overlay hidden">
+    <div class="modal-card glass-panel modal-lg">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-graduation-cap text-cyan"></i> Educational & Personal Use Disclaimer</h3>
+        <button class="close-modal-btn" id="close-welcome-modal-btn" tabindex="0">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="disclaimer-box">
+          <h5><i class="fa-solid fa-shield-halved text-warning"></i> Educational & Personal Use Notice</h5>
+          <p>
+            <strong>This application is developed strictly for educational and normal personal streaming purposes.</strong>
+            All television channel streams, logos, and trademarks belong to their respective broadcasting networks and copyright owners. NovaStream does not host, broadcast, or store any copyrighted video content on its servers; it acts solely as a player for publicly available Free-to-Air IPTV links.
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="confirm-welcome-btn" class="btn-primary btn-large" tabindex="0">
+          <i class="fa-solid fa-check"></i> <span>I Understand & Continue</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offline Channel Alert Popup Modal -->
+  <div id="offline-modal" class="modal-overlay hidden">
+    <div class="modal-card glass-panel modal-alert">
+      <div class="modal-header alert-header">
+        <h3><i class="fa-solid fa-triangle-exclamation text-warning"></i> Stream Currently Unavailable</h3>
+        <button class="close-modal-btn" id="close-offline-modal-btn" tabindex="0">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc" id="offline-message">
+          This stream is offline or it is disconnected due to Copyright Infrigment. Would you like to play the next working channel?
+        </p>
+        <div class="alert-actions">
+          <button id="popup-next-btn" class="btn-primary btn-large" tabindex="0">
+            <i class="fa-solid fa-forward-step"></i> <span>Play Next Channel</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Playlist Config Modal (Accessible from Bottom Settings Tab) -->
+  <div id="playlist-modal" class="modal-overlay hidden">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-sliders"></i> Android TV & Playlist Settings</h3>
+        <button class="close-modal-btn" id="close-modal-btn" tabindex="0">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Configure your IPTV M3U/M3U8 playlist or select a quick preset below.</p>
+        <div class="input-group">
+          <label for="playlist-url-input">Playlist URL:</label>
+          <input type="url" id="playlist-url-input" value="https://iptv-org.github.io/iptv/index.m3u" placeholder="https://example.com/playlist.m3u" tabindex="0">
+        </div>
+        <div class="preset-links">
+          <span>Quick Presets:</span>
+          <button class="preset-btn" data-url="https://iptv-org.github.io/iptv/languages/tam.m3u" tabindex="0">🔥 Tamil Channels (tam.m3u)</button>
+          <button class="preset-btn" data-url="https://iptv-org.github.io/iptv/countries/in.m3u" tabindex="0">🇮🇳 All India (in.m3u)</button>
+          <button class="preset-btn" data-url="https://iptv-org.github.io/iptv/index.m3u" tabindex="0">🌍 Global (30K+ Channels)</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="reload-playlist-btn" class="btn-primary btn-large" tabindex="0">
+          <i class="fa-solid fa-bolt"></i> <span>Extract & Reload Channels</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-box glass-panel">
+      <div class="spinner-ring"></div>
+      <h2 id="loading-title">Loading Live TV Channels...</h2>
+      <p id="loading-status">Fetching online Tamil and Indian TV streams...</p>
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Workspace -->
+  <div class="main-layout" id="main-layout">
+    
+    <!-- Left Sidebar: Simple Categories -->
+    <aside class="sidebar glass-panel" id="sidebar">
+      <div class="sidebar-header">
+        <h4><i class="fa-solid fa-layer-group"></i> Categories</h4>
+      </div>
+      <nav class="category-list" id="category-list">
+        <button class="category-item active" data-category="all" tabindex="0">
+          <span class="cat-icon"><i class="fa-solid fa-globe"></i></span>
+          <span class="cat-name">All Channels</span>
+          <span class="cat-count" id="count-all">0</span>
+        </button>
+        <button class="category-item" data-category="tamil" tabindex="0">
+          <span class="cat-icon"><i class="fa-solid fa-fire text-pink"></i></span>
+          <span class="cat-name">Tamil Channels</span>
+          <span class="cat-count" id="count-tamil">0</span>
+        </button>
+        <button class="category-item" data-category="favorites" tabindex="0">
+          <span class="cat-icon"><i class="fa-solid fa-heart text-pink"></i></span>
+          <span class="cat-name">Favorites</span>
+          <span class="cat-count" id="count-favorites">0</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="stats-box">
+          <span class="stats-label">Total Extracted:</span>
+          <span class="stats-value" id="total-channels-count">0</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center Content: Player & Channel Grid -->
+    <main class="content-area">
+      
+      <!-- Video Player Section -->
+      <section class="player-section glass-panel" id="player-section">
+        <div class="player-header">
+          <div class="player-channel-info">
+            <div class="channel-logo-wrapper">
+              <img id="player-channel-logo" src="https://via.placeholder.com/60x60/111827/00f0ff?text=TV" alt="Logo" onerror="this.src='https://via.placeholder.com/60x60/111827/00f0ff?text=TV'">
+            </div>
+            <div class="channel-meta">
+              <h2 id="player-channel-title">Select a TV Channel</h2>
+              <div class="channel-badges">
+                <span id="player-category-badge" class="badge badge-category">LIVE</span>
+                <span id="player-language-badge" class="badge badge-lang">Global</span>
+                <span id="player-status-badge" class="badge badge-status badge-idle">
+                  <span class="status-dot"></span> <span id="status-text">Ready</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Player Quick Actions -->
+          <div class="player-top-controls">
+            <button id="favorite-toggle-btn" class="btn-icon large-icon-btn" title="Add to Favorites" tabindex="0">
+              <i class="fa-regular fa-heart"></i>
+            </button>
+            <button id="pip-btn" class="btn-icon large-icon-btn" title="Picture in Picture" tabindex="0">
+              <i class="fa-solid fa-clone"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Video Wrapper with Clean Overlay -->
+        <div class="video-container" id="video-container">
+          <video id="video-player" playsinline crossorigin="anonymous" autoplay controls tabindex="0"></video>
+          
+          <!-- Fullscreen Back Button (Only visible in Fullscreen mode!) -->
+          <button id="fullscreen-back-btn" class="fullscreen-back-btn hidden" title="Exit Fullscreen" tabindex="0">
+            <i class="fa-solid fa-arrow-left"></i> <span>Back</span>
+          </button>
+
+          <!-- Persistent Brand Watermark Overlay -->
+          <div id="player-watermark" class="player-watermark">
+            <span class="watermark-icon"><i class="fa-solid fa-tv"></i></span>
+            <span class="watermark-text">NovaStream<span class="text-cyan">TV</span></span>
+          </div>
+          
+          <!-- Clean Overlay when idle -->
+          <div id="video-overlay" class="video-overlay">
+            <div class="overlay-content">
+              <i class="fa-solid fa-circle-play overlay-icon"></i>
+              <p>Click any channel below to start watching instantly</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Video Bottom Bar (Big Android TV / Remote Friendly Controls) -->
+        <div class="player-footer">
+          <div class="player-nav-buttons">
+            <button id="prev-channel-btn" class="btn-control btn-large-control" title="Previous Channel" tabindex="0">
+              <i class="fa-solid fa-backward-step"></i> <span>Prev</span>
+            </button>
+            <button id="next-channel-btn" class="btn-control btn-large-control" title="Next Channel" tabindex="0">
+              <span>Next</span> <i class="fa-solid fa-forward-step"></i>
+            </button>
+            <button id="fullscreen-btn" class="btn-control btn-large-control btn-fullscreen" title="Full Screen for TV" tabindex="0">
+              <i class="fa-solid fa-expand"></i> <span>Full Screen</span>
+            </button>
+          </div>
+          <div class="player-aspect-ratio">
+            <label for="aspect-select"><i class="fa-solid fa-desktop"></i> Aspect:</label>
+            <select id="aspect-select" tabindex="0">
+              <option value="default">Default</option>
+              <option value="16:9">16:9 Widescreen</option>
+              <option value="4:3">4:3 TV Size</option>
+              <option value="fill">Fill Screen</option>
+            </select>
+          </div>
+          <div class="player-tips">
+            <span><i class="fa-solid fa-shield-heart text-cyan"></i> <span>Automatic proxy protection & high-speed streaming</span></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Channel Grid Section (ALL Channels in 1 Page!) -->
+      <section class="grid-section">
+        <div class="grid-header">
+          <div class="grid-title-area">
+            <h3 id="current-category-title">All Channels</h3>
+            <span class="badge count-badge" id="visible-count-badge">Showing: 0</span>
+          </div>
+          
+          <div class="grid-controls">
+            <div class="view-toggles">
+              <button id="view-grid-btn" class="btn-view active" title="Grid View" tabindex="0">
+                <i class="fa-solid fa-border-all"></i>
+              </button>
+              <button id="view-list-btn" class="btn-view" title="List View" tabindex="0">
+                <i class="fa-solid fa-list-ul"></i>
+              </button>
+            </div>
+
+            <!-- Pagination hidden/disabled since all channels are listed in 1 page -->
+            <div class="pagination-controls hidden">
+              <button id="page-prev-btn" class="btn-page" disabled title="Prev Page">
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              <span class="page-indicator" id="page-indicator">Page 1 / 1</span>
+              <button id="page-next-btn" class="btn-page" disabled title="Next Page">
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Channel Cards Grid (Big clear text, focusable for TV D-Pad) -->
+        <div class="channel-grid grid-mode" id="channel-grid"></div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="empty-state hidden">
+          <i class="fa-solid fa-tv empty-icon"></i>
+          <h4>No live channels found</h4>
+          <p>Try searching for a different keyword or category.</p>
+          <button id="reset-filters-btn" class="btn-primary btn-large" tabindex="0">Reset All Filters</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Fixed Bottom Navigation Bar (4 clean tabs without language selector!) -->
+  <nav class="bottom-nav">
+    <button class="nav-tab active" id="tab-home" tabindex="0">
+      <i class="fa-solid fa-house"></i>
+      <span>Home</span>
+    </button>
+    <button class="nav-tab" id="tab-search" tabindex="0">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <span>Search</span>
+    </button>
+    <button class="nav-tab" id="tab-fav" tabindex="0">
+      <i class="fa-solid fa-heart"></i>
+      <span>Favorites</span>
+    </button>
+    <button class="nav-tab" id="tab-settings" tabindex="0">
+      <i class="fa-solid fa-sliders"></i>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- Channels Data & Application Script -->
+  <script src="tamil-channels.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
