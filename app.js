@@ -37,6 +37,7 @@ const el = {};
 function initDomRefs() {
     Object.assign(el, {
         portal: $('entrance-portal'),
+        portalToast: $('portal-toast'),
         app: $('app-wrapper'),
         loadOverlay: $('loading-overlay'),
         loadProgress: $('load-progress'),
@@ -49,6 +50,7 @@ function initDomRefs() {
         searchInput: $('search-input'),
         clearSearch: $('clear-search-btn'),
         searchContainer: $('search-container'),
+        searchRecom: $('search-recommendations'),
 
 
         hero: $('hero-spotlight'),
@@ -59,6 +61,8 @@ function initDomRefs() {
         heroYear: $('hero-year'),
         heroPlay: $('hero-play-btn'),
         heroFav: $('hero-fav-btn'),
+        heroBadgeImg: $('hero-badge-img'),
+        heroDots: $('hero-dots'),
 
         rowsContainer: $('rows-container'),
         sectionHeader: $('section-header'),
@@ -443,18 +447,65 @@ function playPrevItem() {
 }
 
 // ---------- HERO ----------
+let heroFeaturedList = [];
+
+function initHeroFeatured() {
+    if (!state.activeItems || state.activeItems.length === 0) return;
+    const candidates = state.activeItems.filter(i => {
+        const n = (i.name || i.title || '').toLowerCase();
+        return n.includes('puthiya') || n.includes('sun') || n.includes('thanthi') || n.includes('polimer') || n.includes('news7');
+    });
+    if (candidates.length >= 3) {
+        heroFeaturedList = candidates.slice(0, 4);
+    } else {
+        heroFeaturedList = state.activeItems.slice(0, 4);
+    }
+    renderHeroDots();
+}
+
+function renderHeroDots() {
+    if (!el.heroDots || !heroFeaturedList || heroFeaturedList.length === 0) return;
+    el.heroDots.innerHTML = '';
+    const currentId = state.currentItem ? state.currentItem.id : (heroFeaturedList[0]?.id);
+
+    heroFeaturedList.forEach((item, idx) => {
+        const dot = document.createElement('span');
+        const isActive = (item.id === currentId) || (!state.currentItem && idx === 0);
+        dot.className = `dot ${isActive ? 'active' : ''}`;
+        dot.setAttribute('role', 'button');
+        dot.setAttribute('tabindex', '0');
+        dot.setAttribute('aria-label', `Featured channel ${idx + 1}`);
+        dot.addEventListener('click', () => {
+            updateHeroSpotlight(item);
+            document.querySelectorAll('#hero-dots .dot').forEach((d, i) => {
+                d.classList.toggle('active', i === idx);
+            });
+        });
+        el.heroDots.appendChild(dot);
+    });
+}
+
 function updateHeroSpotlight(item) {
     if (!item || !el.hero) return;
     el.hero.classList.remove('hidden');
     const name = getItemName(item);
     const isMovie = item.type === 'movie' || item.type === 'series' || state.currentMode !== 'livetv';
     const autoSvg = generateAutoSVG(name, item.genre || item.category, isMovie);
-    const bg = item.poster || item.logo || autoSvg;
-    if (el.heroBg) el.heroBg.style.backgroundImage = `url('${bg}')`;
+    const imgSrc = item.poster || item.logo || autoSvg;
+
+    if (el.heroBadgeImg) {
+        el.heroBadgeImg.src = imgSrc;
+        el.heroBadgeImg.style.display = 'block';
+        el.heroBadgeImg.onerror = () => { el.heroBadgeImg.src = autoSvg; };
+    }
+    if (el.heroBg) el.heroBg.style.backgroundImage = `url('${imgSrc}')`;
     if (el.heroTitle) el.heroTitle.textContent = name;
-    if (el.heroDesc) el.heroDesc.textContent = item.description || `Watch ${name} on NovaX TV.`;
-    if (el.heroCategory) el.heroCategory.textContent = item.genre || item.category || 'Live TV';
-    if (el.heroYear) el.heroYear.textContent = item.year || item.language || 'HD';
+    if (el.heroDesc) el.heroDesc.textContent = item.description || `Watch ${name} 24x7, live.`;
+    if (el.heroCategory) {
+        const cat = item.genre || item.category || 'News';
+        const lang = item.language ? ` • ${item.language}` : ' • Tamil';
+        el.heroCategory.textContent = `${cat}${lang}`;
+    }
 
     if (el.heroPlay) {
         el.heroPlay.onclick = () => playItem(item);
@@ -466,6 +517,8 @@ function updateHeroSpotlight(item) {
             updateHeroFavButton();
         };
     }
+
+    renderHeroDots();
 }
 
 // ---------- RENDER GRID ----------
@@ -523,6 +576,17 @@ function getModeLabel() {
     return map[state.currentMode] || 'Items';
 }
 
+function getLogoBoxClass(item, name) {
+    const n = (name || '').toLowerCase();
+    if (n.includes('75 music') || n.includes('aaryaa') || n.includes('polimer') || n.includes('thanthi') || n.includes('news7') || n.includes('puthiya thalaimurai') || n.includes('sun music') || n.includes('isai')) {
+        return 'card-logo-box light-box';
+    }
+    if (item.bg === 'white' || item.logoBg === 'white') {
+        return 'card-logo-box light-box';
+    }
+    return 'card-logo-box dark-box';
+}
+
 function createCard(item) {
     const isFav = state.favorites.has(item.id);
     const isActive = state.currentItem && state.currentItem.id === item.id;
@@ -530,53 +594,52 @@ function createCard(item) {
     const name = getItemName(item);
     const autoSvg = generateAutoSVG(name, item.genre || item.category, isMovie);
     const imgSrc = item.poster || item.logo || autoSvg;
+    const boxClass = getLogoBoxClass(item, name);
+    const categoryName = item.genre || item.category || 'General';
+    const isTamil = item.language === 'Tamil';
 
     const card = document.createElement('div');
-    card.className = `card ${isActive ? 'active' : ''}`;
+    card.className = `card channel-card ${isActive ? 'active' : ''}`;
     card.dataset.id = item.id;
     card.tabIndex = 0;
 
-    const thumbClass = isMovie ? 'thumb poster' : 'thumb';
-    const badge = isMovie && item.duration ? `<span class="badge-top">${escapeXML(item.duration)}</span>` : '';
-    const langTag = item.language === 'Tamil' ? 'tamil' : '';
-    const langLabel = item.language || '';
-
     card.innerHTML = `
-        <div class="${thumbClass}">
+        <div class="${boxClass}">
             <img src="${escapeAttr(imgSrc)}" alt="${escapeAttr(name)}" loading="lazy" onerror="this.src='${escapeAttr(autoSvg)}';">
-            ${badge}
         </div>
-        <div class="info">
-            <div class="title">${escapeXML(name)}</div>
-            <div class="sub">
-                <span>${escapeXML(item.genre || item.category || 'General')}</span>
-                ${item.year ? `<span>• ${escapeXML(item.year)}</span>` : ''}
-                ${langLabel ? `<span class="lang-tag ${langTag}">${escapeXML(langLabel)}</span>` : ''}
+        <div class="card-body">
+            <div class="card-channel-title" title="${escapeAttr(name)}">${escapeXML(name)}</div>
+            <div class="card-tag-row">
+                <span class="card-badge">${escapeXML(categoryName)}</span>
+                ${isTamil ? '<span class="card-badge badge-tamil">Tamil</span>' : ''}
             </div>
         </div>
-        <div class="card-footer">
-            <button class="fav-btn ${isFav ? 'is-fav' : ''}" data-fav-id="${item.id}" tabindex="0" aria-label="Toggle favorite">
+        <div class="card-actions-row">
+            <button class="card-heart-btn fav-btn ${isFav ? 'is-fav' : ''}" data-fav-id="${item.id}" tabindex="0" aria-label="Toggle favorite">
                 <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-heart"></i>
             </button>
-            <span class="watch-tag"><i class="fa-solid fa-play"></i> Watch</span>
+            <span class="card-watch-cta"><i class="fa-solid fa-play"></i> Watch</span>
         </div>
     `;
 
     card.addEventListener('click', (e) => {
-        if (e.target.closest('.fav-btn')) return;
+        if (e.target.closest('.card-heart-btn') || e.target.closest('.fav-btn')) return;
         playItem(item);
     });
 
-    card.querySelector('.fav-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleFavorite(item);
-        const btn = e.currentTarget;
-        const isNow = state.favorites.has(item.id);
-        btn.classList.toggle('is-fav', isNow);
-        const icon = btn.querySelector('i');
-        if (icon) icon.className = (isNow ? 'fa-solid' : 'fa-regular') + ' fa-heart';
-        if (state.currentItem && state.currentItem.id === item.id) updateHeroFavButton();
-    });
+    const heartBtn = card.querySelector('.card-heart-btn');
+    if (heartBtn) {
+        heartBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleFavorite(item);
+            const btn = e.currentTarget;
+            const isNow = state.favorites.has(item.id);
+            btn.classList.toggle('is-fav', isNow);
+            const icon = btn.querySelector('i');
+            if (icon) icon.className = (isNow ? 'fa-solid' : 'fa-regular') + ' fa-heart';
+            if (state.currentItem && state.currentItem.id === item.id) updateHeroFavButton();
+        });
+    }
 
     return card;
 }
@@ -589,43 +652,327 @@ function renderCarouselRows(items) {
 
     if (state.currentMode !== 'livetv' || state.activeCategory !== 'all' || state.searchQuery) {
         container.classList.add('hidden');
-        el.channelGrid.classList.remove('hidden');
+        el.channelGrid?.classList.remove('hidden');
         return;
     }
     container.classList.remove('hidden');
-    el.channelGrid.classList.add('hidden');
+    el.channelGrid?.classList.add('hidden');
 
     const groups = new Map();
-    const tamil = items.filter(i => i.language === 'Tamil');
-    if (tamil.length) groups.set('Tamil Channels', tamil.slice(0, 18));
 
-    items.forEach(i => {
-        const cat = i.genre || i.category || 'General';
-        if (!groups.has(cat)) groups.set(cat, []);
-        if (groups.get(cat).length < 18) groups.get(cat).push(i);
+    // 1. Tamil Channels: 20 scrollable channels horizontally from right to left, then "See All" card
+    const tamil = items.filter(i => i.language === 'Tamil');
+    if (tamil.length) {
+        groups.set('Tamil Channels', {
+            icon: 'fa-solid fa-bolt',
+            iconColor: '#00e5ff',
+            catKey: 'tamil',
+            items: tamil.slice(0, 20),
+            totalCount: tamil.length
+        });
+    }
+
+    // 2. Music Channels: 20 scrollable channels, then "See All" card
+    const music = items.filter(i => {
+        const cat = (i.genre || i.category || '').toLowerCase();
+        const title = (i.title || i.name || '').toLowerCase();
+        return cat.includes('music') || title.includes('music');
+    });
+    if (music.length) {
+        groups.set('Music', {
+            icon: 'fa-solid fa-music',
+            iconColor: '#00e5ff',
+            catKey: 'Music',
+            items: music.slice(0, 20),
+            totalCount: music.length
+        });
+    }
+
+    // 3. Entertainment Channels: 20 scrollable channels, then "See All" card
+    const entertainment = items.filter(i => {
+        const cat = (i.genre || i.category || '').toLowerCase();
+        const title = (i.title || i.name || '').toLowerCase();
+        return cat.includes('entertainment') || cat.includes('general') || title.includes('tv');
+    });
+    if (entertainment.length) {
+        groups.set('Entertainment', {
+            icon: 'fa-solid fa-clapperboard',
+            iconColor: '#00e5ff',
+            catKey: 'Entertainment',
+            items: entertainment.slice(0, 20),
+            totalCount: entertainment.length
+        });
+    }
+
+    // 4. News Channels: 20 scrollable channels, then "See All" card
+    const news = items.filter(i => {
+        const cat = (i.genre || i.category || '').toLowerCase();
+        const title = (i.title || i.name || '').toLowerCase();
+        return cat.includes('news') || title.includes('news') || title.includes('seithigal');
+    });
+    if (news.length) {
+        groups.set('News', {
+            icon: 'fa-solid fa-newspaper',
+            iconColor: '#00e5ff',
+            catKey: 'News',
+            items: news.slice(0, 20),
+            totalCount: news.length
+        });
+    }
+
+    // Additional categories if available
+    const standardKeys = new Set(['tamil channels', 'music', 'entertainment', 'news']);
+    state.categories.forEach((count, cat) => {
+        if (!standardKeys.has(cat.toLowerCase()) && count >= 3 && groups.size < 7) {
+            const catItems = items.filter(i => (i.genre || i.category || '').toLowerCase() === cat.toLowerCase());
+            if (catItems.length >= 3) {
+                groups.set(cat, {
+                    icon: 'fa-solid fa-layer-group',
+                    iconColor: '#00e5ff',
+                    catKey: cat,
+                    items: catItems.slice(0, 20),
+                    totalCount: catItems.length
+                });
+            }
+        }
     });
 
-    groups.forEach((rowItems, title) => {
-        if (rowItems.length === 0) return;
+    groups.forEach((groupData, title) => {
+        if (!groupData.items || groupData.items.length === 0) return;
         const row = document.createElement('div');
-        row.className = 'carousel-row';
-        const catKey = title.includes('Tamil') ? 'tamil' : title;
+        row.className = 'channel-category-row';
         row.innerHTML = `
-            <div class="row-head">
-                <h4><i class="fa-solid fa-bolt" style="color:var(--accent-cyan);"></i> ${escapeXML(title)}</h4>
-                <button class="see-all" data-cat="${escapeAttr(catKey)}">See All →</button>
+            <div class="category-row-head">
+                <h4 class="category-row-title">
+                    <i class="${groupData.icon}" style="color:${groupData.iconColor};"></i> ${escapeXML(title)}
+                </h4>
+                <button class="see-all-link see-all" data-cat="${escapeAttr(groupData.catKey)}">
+                    See All <i class="fa-solid fa-arrow-right"></i>
+                </button>
             </div>
-            <div class="carousel-scroll"></div>
+            <div class="category-scroll-track"></div>
         `;
-        const scroll = row.querySelector('.carousel-scroll');
-        rowItems.forEach(item => {
-            scroll.appendChild(createCard(item));
+        const track = row.querySelector('.category-scroll-track');
+        groupData.items.forEach(item => {
+            track.appendChild(createCard(item));
         });
-        row.querySelector('.see-all')?.addEventListener('click', () => {
-            const cat = row.querySelector('.see-all').dataset.cat;
-            selectCategory(cat);
+
+        // Add "See All" card at the end of the 20 channels
+        const seeAllCard = document.createElement('div');
+        seeAllCard.className = 'channel-card see-all-card';
+        seeAllCard.setAttribute('tabindex', '0');
+        seeAllCard.setAttribute('role', 'button');
+        seeAllCard.setAttribute('aria-label', `See all ${escapeAttr(title)}`);
+        seeAllCard.innerHTML = `
+            <div class="see-all-inner">
+                <div class="see-all-icon-squircle">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </div>
+                <div class="see-all-text">See All</div>
+                <div class="see-all-sub">${groupData.totalCount ? groupData.totalCount + ' Channels' : 'View More'}</div>
+            </div>
+        `;
+
+        const handleSeeAll = () => {
+            selectCategory(groupData.catKey);
+            document.getElementById('section-header')?.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        seeAllCard.addEventListener('click', handleSeeAll);
+        seeAllCard.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleSeeAll();
+            }
         });
+
+        track.appendChild(seeAllCard);
+
+        row.querySelector('.see-all')?.addEventListener('click', handleSeeAll);
         container.appendChild(row);
+    });
+}
+
+// ---------- SEARCH RECOMMENDATIONS ----------
+function highlightMatch(text, query) {
+    if (!query) return escapeXML(text);
+    const escaped = escapeXML(text);
+    const cleanQ = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (!cleanQ) return escaped;
+    const regex = new RegExp(`(${cleanQ})`, 'gi');
+    return escaped.replace(regex, '<span class="search-match-highlight">$1</span>');
+}
+
+function hideSearchRecommendations() {
+    if (el.searchRecom) {
+        el.searchRecom.classList.add('hidden');
+    }
+}
+
+function showSearchRecommendations(query) {
+    const container = el.searchRecom || $('search-recommendations');
+    if (!container) return;
+
+    const trimmed = (query || '').trim().toLowerCase();
+    const all = state.allChannels.length > 0 ? state.allChannels : state.activeItems;
+
+    if (!trimmed) {
+        // Trending / popular quick searches and top recommended channels
+        const topChannels = all.filter(i => {
+            const n = (i.name || i.title || '').toLowerCase();
+            return n.includes('puthiya') || n.includes('sun') || n.includes('thanthi') || n.includes('kalaignar') || n.includes('polimer') || n.includes('75 music');
+        }).slice(0, 4);
+
+        const listToRender = topChannels.length > 0 ? topChannels : all.slice(0, 4);
+
+        container.innerHTML = `
+            <div class="search-recom-section">
+                <div class="recom-section-title">
+                    <i class="fa-solid fa-sparkles text-cyan"></i> Trending Searches
+                </div>
+                <div class="recom-chips-wrap">
+                    <button class="recom-chip" data-search="Tamil"><i class="fa-solid fa-bolt text-cyan"></i> Tamil</button>
+                    <button class="recom-chip" data-search="News"><i class="fa-solid fa-newspaper"></i> News 24x7</button>
+                    <button class="recom-chip" data-search="Music"><i class="fa-solid fa-music"></i> Music</button>
+                    <button class="recom-chip" data-search="Sun TV"><i class="fa-solid fa-tv"></i> Sun TV</button>
+                    <button class="recom-chip" data-search="Polimer"><i class="fa-solid fa-tv"></i> Polimer</button>
+                    <button class="recom-chip" data-search="Movies"><i class="fa-solid fa-film"></i> Movies</button>
+                </div>
+            </div>
+            <div class="search-recom-divider"></div>
+            <div class="search-recom-section">
+                <div class="recom-section-title">
+                    <i class="fa-solid fa-fire text-cyan"></i> Recommended Channels
+                </div>
+                <div class="recom-channels-list"></div>
+            </div>
+        `;
+
+        const channelsList = container.querySelector('.recom-channels-list');
+        listToRender.forEach(item => {
+            channelsList.appendChild(createRecommendationItem(item, ''));
+        });
+
+        attachRecommendationEvents(container);
+        container.classList.remove('hidden');
+        return;
+    }
+
+    // When query is non-empty: find matching channels according to keyword or channel name
+    const matches = all.filter(i => {
+        const name = (i.name || i.title || '').toLowerCase();
+        const nameTa = (i.nameTa || '').toLowerCase();
+        const cat = (i.category || i.genre || '').toLowerCase();
+        const lang = (i.language || '').toLowerCase();
+        return name.includes(trimmed) || nameTa.includes(trimmed) || cat.includes(trimmed) || lang.includes(trimmed);
+    });
+
+    if (matches.length === 0) {
+        container.innerHTML = `
+            <div class="search-recom-empty">
+                <div class="empty-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+                <div class="empty-title">No channels found for "${escapeXML(query)}"</div>
+                <div class="empty-sub">Try searching by category or popular keyword:</div>
+                <div class="recom-chips-wrap" style="justify-content: center; margin-top: 6px;">
+                    <button class="recom-chip" data-search="Tamil"><i class="fa-solid fa-bolt text-cyan"></i> Tamil</button>
+                    <button class="recom-chip" data-search="News"><i class="fa-solid fa-newspaper"></i> News</button>
+                    <button class="recom-chip" data-search="Music"><i class="fa-solid fa-music"></i> Music</button>
+                    <button class="recom-chip" data-search="Movies"><i class="fa-solid fa-film"></i> Movies</button>
+                </div>
+            </div>
+        `;
+        attachRecommendationEvents(container);
+        container.classList.remove('hidden');
+        return;
+    }
+
+    // Show top matches (up to 6)
+    const displayMatches = matches.slice(0, 6);
+    container.innerHTML = `
+        <div class="search-recom-section">
+            <div class="recom-section-title">
+                <i class="fa-solid fa-magnifying-glass text-cyan"></i> Channels & Keywords (${matches.length} found)
+            </div>
+            <div class="recom-channels-list"></div>
+        </div>
+    `;
+
+    const channelsList = container.querySelector('.recom-channels-list');
+    displayMatches.forEach(item => {
+        channelsList.appendChild(createRecommendationItem(item, trimmed));
+    });
+
+    attachRecommendationEvents(container);
+    container.classList.remove('hidden');
+}
+
+function createRecommendationItem(item, query) {
+    const name = getItemName(item);
+    const category = item.category || item.genre || 'General';
+    const isTamil = item.language === 'Tamil';
+    const isMovie = item.type === 'movie' || item.type === 'series' || state.currentMode !== 'livetv';
+    const autoSvg = generateAutoSVG(name, category, isMovie);
+    const imgSrc = item.poster || item.logo || autoSvg;
+    const boxClass = getLogoBoxClass(item, name);
+
+    const div = document.createElement('div');
+    div.className = 'recom-channel-item';
+    div.dataset.id = item.id;
+    div.setAttribute('tabindex', '0');
+    div.setAttribute('role', 'option');
+
+    div.innerHTML = `
+        <div class="recom-logo-box ${boxClass.includes('light-box') ? 'light-box' : 'dark-box'}">
+            <img src="${escapeAttr(imgSrc)}" alt="${escapeAttr(name)}" loading="lazy" onerror="this.src='${escapeAttr(autoSvg)}';">
+        </div>
+        <div class="recom-channel-info">
+            <div class="recom-channel-name">${highlightMatch(name, query)}</div>
+            <div class="recom-channel-tags">
+                <span class="recom-tag">${escapeXML(category)}</span>
+                ${isTamil ? '<span class="recom-tag tag-tamil">Tamil</span>' : ''}
+            </div>
+        </div>
+        <button class="recom-play-btn" title="Watch ${escapeAttr(name)}">
+            <i class="fa-solid fa-play"></i> Watch
+        </button>
+    `;
+
+    const triggerPlay = (e) => {
+        e.stopPropagation();
+        playItem(item);
+        hideSearchRecommendations();
+        if (el.searchInput) {
+            el.searchInput.value = name;
+            state.searchQuery = name.toLowerCase();
+            el.clearSearch?.classList.remove('hidden');
+        }
+        document.getElementById('player-section')?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    div.addEventListener('click', triggerPlay);
+    div.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            triggerPlay(e);
+        }
+    });
+
+    return div;
+}
+
+function attachRecommendationEvents(container) {
+    container.querySelectorAll('.recom-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const searchVal = chip.dataset.search;
+            if (el.searchInput) {
+                el.searchInput.value = searchVal;
+                state.searchQuery = searchVal.toLowerCase();
+                el.clearSearch?.classList.remove('hidden');
+                applyFilters();
+                showSearchRecommendations(searchVal);
+            }
+        });
     });
 }
 
@@ -706,7 +1053,7 @@ function updateCategoryPills() {
     const allBtn = document.createElement('button');
     allBtn.className = `cat-pill ${state.activeCategory === 'all' ? 'active' : ''}`;
     allBtn.dataset.cat = 'all';
-    allBtn.innerHTML = `<i class="fa-solid fa-globe"></i> All <span class="count">${state.activeItems.length}</span>`;
+    allBtn.innerHTML = `<i class="fa-solid fa-table-cells-large"></i> All <span class="count">${state.activeItems.length}</span>`;
     allBtn.addEventListener('click', () => selectCategory('all'));
     container.appendChild(allBtn);
 
@@ -716,8 +1063,7 @@ function updateCategoryPills() {
             const btn = document.createElement('button');
             btn.className = `cat-pill ${state.activeCategory === 'tamil' ? 'active' : ''}`;
             btn.dataset.cat = 'tamil';
-            btn.innerHTML =
-                `<i class="fa-solid fa-fire" style="color:var(--accent-cyan);"></i> Tamil <span class="count">${tamilCount}</span>`;
+            btn.innerHTML = `<i class="fa-solid fa-star" style="color:var(--accent-cyan);"></i> Tamil <span class="count">${tamilCount}</span>`;
             btn.addEventListener('click', () => selectCategory('tamil'));
             container.appendChild(btn);
         }
@@ -727,7 +1073,7 @@ function updateCategoryPills() {
     sorted.forEach(([cat, count]) => {
         if (count === 0) return;
         const btn = document.createElement('button');
-        btn.className = `cat-pill ${state.activeCategory === cat ? 'active' : ''}`;
+        btn.className = `cat-pill ${state.activeCategory.toLowerCase() === cat.toLowerCase() ? 'active' : ''}`;
         btn.dataset.cat = cat;
         let icon = 'fa-tag';
         const l = cat.toLowerCase();
@@ -740,6 +1086,8 @@ function updateCategoryPills() {
         else if (l.includes('action')) icon = 'fa-bolt';
         else if (l.includes('comedy')) icon = 'fa-face-laugh';
         else if (l.includes('drama')) icon = 'fa-masks-theater';
+        else if (l.includes('entertainment')) icon = 'fa-clapperboard';
+        else if (l.includes('general')) icon = 'fa-tag';
         btn.innerHTML = `<i class="fa-solid ${icon}"></i> ${escapeXML(cat)} <span class="count">${count}</span>`;
         btn.addEventListener('click', () => selectCategory(cat));
         container.appendChild(btn);
@@ -827,6 +1175,7 @@ function switchMode(mode) {
     });
 
     if (state.activeItems.length > 0) {
+        initHeroFeatured();
         updateHeroSpotlight(state.activeItems[0]);
         if (!state.currentItem) playItem(state.activeItems[0]);
     } else {
@@ -927,8 +1276,43 @@ async function loadInitialData() {
     }, 200);
 }
 
+// ---------- MOVIE POPUP MODAL ----------
+function openMovieModal() {
+    const modal = document.getElementById('movie-popup-modal');
+    if (!modal) return;
+    if (window.i18n && typeof window.i18n.translateDOM === 'function') {
+        window.i18n.translateDOM();
+    }
+    modal.classList.remove('hidden');
+}
+
+function closeMovieModal() {
+    const modal = document.getElementById('movie-popup-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+}
+
+// ---------- PORTAL TOAST NOTIFICATION ----------
+let portalToastTimer = null;
+function showPortalToast(message, iconClass = 'fa-circle-info') {
+    const toast = el.portalToast || $('portal-toast');
+    if (!toast) return;
+    const msgEl = toast.querySelector('.toast-msg');
+    const iconEl = toast.querySelector('.toast-icon');
+    if (msgEl) msgEl.textContent = message;
+    if (iconEl) iconEl.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
+    
+    toast.classList.remove('hidden');
+    if (portalToastTimer) clearTimeout(portalToastTimer);
+    portalToastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 3500);
+}
+
 // ---------- ENTER APP ----------
 function enterApp(mode) {
+    closeMovieModal();
+    if (el.portalToast) el.portalToast.classList.add('hidden');
     el.portal?.classList.add('portal-hidden');
     setTimeout(() => {
         el.portal?.classList.add('hidden');
@@ -941,10 +1325,11 @@ function enterApp(mode) {
                 window.location.hash = (mode || 'livetv');
             }
         }
-    }, 400);
+    }, 450);
 }
 
 function goHome(skipPush) {
+    closeMovieModal();
     el.app?.classList.add('hidden');
     el.portal?.classList.remove('hidden');
     el.portal?.classList.remove('portal-hidden');
@@ -972,22 +1357,49 @@ function setupEvents() {
     });
 
     document.querySelectorAll('.portal-card').forEach(card => {
-        card.addEventListener('click', () => {
+        const handleCardAction = () => {
+            if (card.dataset.locked === 'true' || card.classList.contains('locked')) {
+                const lockIcon = card.querySelector('.lock-icon') || card.querySelector('.btn-lock');
+                if (lockIcon) {
+                    lockIcon.classList.remove('shake-lock');
+                    void lockIcon.offsetWidth; // trigger browser reflow for instant re-animation
+                    lockIcon.classList.add('shake-lock');
+                }
+                openMovieModal();
+                return;
+            }
+
             const mode = card.dataset.enter;
             if (mode) {
                 enterApp(mode);
             }
-        });
+        };
+
+        card.addEventListener('click', handleCardAction);
         card.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                const mode = card.dataset.enter;
-                if (mode) enterApp(mode);
+                handleCardAction();
             }
         });
     });
 
     el.logoHome?.addEventListener('click', goHome);
+
+    // Movie Popup Modal Close Listeners
+    document.getElementById('close-movie-modal-btn')?.addEventListener('click', closeMovieModal);
+    document.getElementById('btn-movie-gotit')?.addEventListener('click', closeMovieModal);
+    document.getElementById('movie-popup-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'movie-popup-modal') {
+            closeMovieModal();
+        }
+    });
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeMovieModal();
+            hideSearchRecommendations();
+        }
+    });
 
     el.channelMenuBtn?.addEventListener('click', () => {
         el.channelMenuOverlay?.classList.add('show');
@@ -1004,16 +1416,30 @@ function setupEvents() {
         });
     });
 
+    el.searchInput?.addEventListener('focus', () => {
+        showSearchRecommendations(el.searchInput.value);
+    });
+
     el.searchInput?.addEventListener('input', (e) => {
         state.searchQuery = e.target.value.trim().toLowerCase();
         el.clearSearch?.classList.toggle('hidden', state.searchQuery === '');
         applyFilters();
+        showSearchRecommendations(e.target.value);
     });
+
     el.clearSearch?.addEventListener('click', () => {
         if (el.searchInput) el.searchInput.value = '';
         state.searchQuery = '';
         el.clearSearch?.classList.add('hidden');
+        hideSearchRecommendations();
         applyFilters();
+    });
+
+    // Close search recommendations on click outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#search-container')) {
+            hideSearchRecommendations();
+        }
     });
 
     el.pagePrev?.addEventListener('click', () => {
@@ -1138,14 +1564,49 @@ function setupEvents() {
         }
     });
 
+    document.getElementById('all-channels-see-all')?.addEventListener('click', () => {
+        selectCategory('all');
+        document.getElementById('rows-container')?.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // Top Bar Actions (Screenshot 1 & 2)
+    document.getElementById('hamburger-menu-btn')?.addEventListener('click', () => {
+        el.channelMenuOverlay?.classList.add('show');
+        populateChannelMenu();
+    });
+    document.getElementById('top-search-btn')?.addEventListener('click', () => {
+        el.searchInput?.focus();
+        showSearchRecommendations(el.searchInput?.value || '');
+        document.getElementById('search-container')?.scrollIntoView({ behavior: 'smooth' });
+    });
+    document.getElementById('top-notify-btn')?.addEventListener('click', () => {
+        el.welcomeModal?.classList.remove('hidden');
+    });
+    document.getElementById('top-profile-btn')?.addEventListener('click', () => {
+        el.settingsModal?.classList.remove('hidden');
+    });
+
+    // Category Pills Scroll Button (Screenshot 1)
+    document.getElementById('cat-scroll-right')?.addEventListener('click', () => {
+        el.catPills?.scrollBy({ left: 160, behavior: 'smooth' });
+    });
+
+    // Bottom Navigation (Screenshot 1 & 2)
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
             const tab = item.dataset.tab;
             if (tab === 'home') {
-                goHome();
+                if (el.app && !el.app.classList.contains('hidden')) {
+                    switchMode('livetv');
+                    selectCategory('all');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    goHome();
+                }
             } else if (tab === 'search') {
                 el.searchInput?.focus();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                showSearchRecommendations(el.searchInput?.value || '');
+                document.getElementById('search-container')?.scrollIntoView({ behavior: 'smooth' });
             } else if (tab === 'favorites') {
                 if (el.portal?.classList.contains('hidden')) {
                     switchMode('favorites');
